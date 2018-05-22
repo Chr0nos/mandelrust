@@ -1,0 +1,10 @@
+[package]
+name = "mandelrust"
+version = "0.1.0"
+authors = ["Chr0nos <snicolet@student.42.fr>"]
+
+[dependencies]
+num = "0.1.27"
+image = "0.13.0"
+crossbeam = "0.2.8"
+sdl2 = "0.31.0"
