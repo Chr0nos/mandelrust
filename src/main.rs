@@ -5,10 +5,11 @@ use std::fs::File;
 //use std::io::Write;
 extern crate num;
 use num::Complex;
-extern crate crossbeam;
 extern crate sdl2;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::surface::Surface;
+extern crate rayon;
+use rayon::prelude::*;
 
 struct Tv2i {
     x: usize,
@@ -27,27 +28,22 @@ impl Mandelrust {
     pub fn render(&self, pixels: &mut [u8])
     {
         assert!(pixels.len() == self.dimentions.x * self.dimentions.y);
-        let rows_per_bands = self.dimentions.y / self.threads + 1;
-        let bands: Vec<&mut [u8]> = pixels.chunks_mut(
-            rows_per_bands * self.dimentions.x).collect();
-
-        crossbeam::scope(|spawner| {
-            for (i, band) in bands.into_iter().enumerate() {
-                let top = rows_per_bands * i;
-                let height = band.len() / self.dimentions.x;
-                let band_bounds = Tv2i { x: self.dimentions.x, y: height };
-                let band_upper_left = self.pixel_to_point(Tv2i { x: 0, y: top },
-                                                          self.upper_left,
-                                                          self.lower_right,
-                                                          &self.dimentions);
-                let band_lower_right = self.pixel_to_point(
-                    Tv2i { x: self.dimentions.x, y: top + height },
-                    self.upper_left,
-                    self.lower_right,
-                    &self.dimentions);
-                spawner.spawn(move ||
-                    self.render_section(band, band_bounds, band_upper_left, band_lower_right));
-            }
+        let bands: Vec<(usize, &mut [u8])> = pixels.chunks_mut(self.dimentions.x)
+            .enumerate().collect();
+        bands.into_par_iter().weight_max().for_each(|(i, band)| {
+            let top = i;
+            let band_bounds = Tv2i { x: self.dimentions.x, y: 1 };
+            let band_upper_left = self.pixel_to_point(
+                Tv2i { x: 0, y: top },
+                self.upper_left,
+                self.lower_right,
+                &self.dimentions);
+            let band_lower_right = self.pixel_to_point(
+                Tv2i { x: self.dimentions.x, y: top + 1 },
+                self.upper_left,
+                self.lower_right,
+                &self.dimentions);
+            self.render_section(band, band_bounds, band_upper_left, band_lower_right);
         });
     }
 
